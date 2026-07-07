@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { COOKIE_NAME, isValidSessionValue } from "@/lib/auth";
 import { MetricEntry } from "@/lib/types";
 import { buildAnalysisPrompt } from "@/lib/buildPrompt";
+import { getSupabaseServerClient } from "@/lib/supabase";
 
 async function checkAuth(request: NextRequest) {
   const session = request.cookies.get(COOKIE_NAME)?.value;
@@ -58,6 +59,19 @@ export async function POST(request: NextRequest) {
     const analysis =
       data.candidates?.[0]?.content?.parts?.[0]?.text ||
       "Não foi possível gerar a análise.";
+
+    // Salva a análise associada ao mês mais recente do histórico enviado.
+    const latestMonth = metrics[metrics.length - 1].month;
+    try {
+      const supabase = getSupabaseServerClient();
+      await supabase
+        .from("analyses")
+        .upsert({ month: latestMonth, analysis }, { onConflict: "month" });
+    } catch (saveErr) {
+      // Não falha a requisição só porque o salvamento deu problema —
+      // a pessoa ainda quer ver a análise na tela.
+      console.error("Erro ao salvar análise:", saveErr);
+    }
 
     return NextResponse.json({ analysis });
   } catch (err: any) {
