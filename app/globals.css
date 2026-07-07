@@ -32,3 +32,14 @@ input:focus, button:focus, select:focus {
     transition-duration: 0.01ms !important;
   }
 }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+  }
+}
