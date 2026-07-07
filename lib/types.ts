@@ -15,6 +15,13 @@ export interface MetricEntry {
   created_at?: string;
 }
 
+export interface AnalysisEntry {
+  id?: string;
+  month: string;
+  analysis: string;
+  created_at?: string;
+}
+
 export interface AnalyzeResponse {
   analysis: string;
 }
