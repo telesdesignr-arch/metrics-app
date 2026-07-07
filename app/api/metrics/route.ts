@@ -41,15 +41,31 @@ export async function POST(request: NextRequest) {
       .upsert(
         {
           month: body.month,
+
           followers: body.followers,
-          new_followers: body.new_followers,
-          reach: body.reach,
-          impressions: body.impressions,
+          followers_gained: body.followers_gained,
+          followers_lost: body.followers_lost,
+          gender_men_pct: body.gender_men_pct,
+          gender_women_pct: body.gender_women_pct,
+
+          views_total: body.views_total,
+          views_reels_pct: body.views_reels_pct,
+          views_stories_pct: body.views_stories_pct,
+          views_posts_pct: body.views_posts_pct,
+          accounts_reached_pct: body.accounts_reached_pct,
+
+          interactions_total: body.interactions_total,
+          interactions_followers_pct: body.interactions_followers_pct,
+          interactions_non_followers_pct: body.interactions_non_followers_pct,
+          interactions_reels_pct: body.interactions_reels_pct,
+          interactions_stories_pct: body.interactions_stories_pct,
+          interactions_posts_pct: body.interactions_posts_pct,
+
+          reels: body.reels,
+          stories: body.stories,
+          posts: body.posts,
+
           profile_visits: body.profile_visits,
-          likes: body.likes,
-          comments: body.comments,
-          shares: body.shares,
-          saves: body.saves,
           posts_count: body.posts_count,
           notes: body.notes || null,
         },
