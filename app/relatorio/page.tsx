@@ -1,10 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+} from "recharts";
 import NavBar from "@/components/NavBar";
-import { MetricEntry, AnalysisEntry } from "@/lib/types";
+import { MetricEntry } from "@/lib/types";
+import { buildMonthlySummary } from "@/lib/reportSummary";
 
-function formatMonthLabel(monthStr: string) {
+function formatMonthShort(monthStr: string) {
+  const [year, month] = monthStr.slice(0, 7).split("-");
+  const names = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  return `${names[Number(month) - 1]}/${year.slice(2)}`;
+}
+
+function formatMonthFull(monthStr: string) {
   const [year, month] = monthStr.slice(0, 7).split("-");
   const names = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -13,277 +31,225 @@ function formatMonthLabel(monthStr: string) {
   return `${names[Number(month) - 1]} de ${year}`;
 }
 
-export default function GerenciarPage() {
-  const [tab, setTab] = useState<"metricas" | "analises">("metricas");
-
+export default function RelatorioPage() {
   const [metrics, setMetrics] = useState<MetricEntry[]>([]);
-  const [loadingMetrics, setLoadingMetrics] = useState(true);
-  const [deletingMetricId, setDeletingMetricId] = useState<string | null>(null);
-  const [confirmingMetricId, setConfirmingMetricId] = useState<string | null>(null);
-  const [metricError, setMetricError] = useState("");
-
-  const [analyses, setAnalyses] = useState<AnalysisEntry[]>([]);
-  const [loadingAnalyses, setLoadingAnalyses] = useState(true);
-  const [deletingAnalysisId, setDeletingAnalysisId] = useState<string | null>(null);
-  const [confirmingAnalysisId, setConfirmingAnalysisId] = useState<string | null>(null);
-  const [expandedAnalysisId, setExpandedAnalysisId] = useState<string | null>(null);
-  const [analysisError, setAnalysisError] = useState("");
-
-  function loadMetrics() {
-    setLoadingMetrics(true);
-    fetch("/api/metrics")
-      .then((res) => res.json())
-      .then((data) => setMetrics((data.metrics || []).slice().reverse()))
-      .finally(() => setLoadingMetrics(false));
-  }
-
-  function loadAnalyses() {
-    setLoadingAnalyses(true);
-    fetch("/api/analyses")
-      .then((res) => res.json())
-      .then((data) => setAnalyses((data.analyses || []).slice().reverse()))
-      .finally(() => setLoadingAnalyses(false));
-  }
+  const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
 
   useEffect(() => {
-    loadMetrics();
-    loadAnalyses();
+    fetch("/api/metrics")
+      .then((res) => res.json())
+      .then((data) => {
+        const list: MetricEntry[] = data.metrics || [];
+        setMetrics(list);
+        if (list.length > 0) {
+          setSelectedMonth(list[list.length - 1].month);
+        }
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  async function handleDeleteMetric(id: string) {
-    setDeletingMetricId(id);
-    setMetricError("");
+  const currentIndex = metrics.findIndex((m) => m.month === selectedMonth);
+  const current = currentIndex >= 0 ? metrics[currentIndex] : undefined;
+  const previous = currentIndex > 0 ? metrics[currentIndex - 1] : undefined;
 
-    try {
-      const res = await fetch("/api/metrics", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
+  const historyUpToSelected = useMemo(
+    () => metrics.slice(0, currentIndex + 1),
+    [metrics, currentIndex]
+  );
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Erro ao apagar.");
-      }
+  const chartData = historyUpToSelected.map((m) => ({
+    mes: formatMonthShort(m.month),
+    Seguidores: m.followers,
+    Visualizações: m.views_total,
+    Engajamento:
+      m.reels.likes + m.reels.comments + m.reels.saves + m.reels.shares + m.reels.reposts +
+      m.stories.likes + m.stories.comments + m.stories.saves + m.stories.shares + m.stories.reposts +
+      m.posts.likes + m.posts.comments + m.posts.saves + m.posts.shares + m.posts.reposts,
+  }));
 
-      setMetrics((prev) => prev.filter((m) => m.id !== id));
-      setConfirmingMetricId(null);
-    } catch (err: any) {
-      setMetricError(err.message);
-    } finally {
-      setDeletingMetricId(null);
-    }
-  }
+  const summaryLines = current ? buildMonthlySummary(current, previous) : [];
 
-  async function handleDeleteAnalysis(id: string) {
-    setDeletingAnalysisId(id);
-    setAnalysisError("");
-
-    try {
-      const res = await fetch("/api/analyses", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Erro ao apagar.");
-      }
-
-      setAnalyses((prev) => prev.filter((a) => a.id !== id));
-      setConfirmingAnalysisId(null);
-    } catch (err: any) {
-      setAnalysisError(err.message);
-    } finally {
-      setDeletingAnalysisId(null);
-    }
+  function handlePrint() {
+    window.print();
   }
 
   return (
     <div className="min-h-screen">
-      <NavBar />
+      <div className="print:hidden">
+        <NavBar />
+      </div>
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-        <h2 className="font-display text-xl font-semibold text-ink mb-1">
-          Gerenciar
-        </h2>
-        <p className="text-sm text-muted mb-6">
-          Veja e apague registros de métricas ou de análises salvas por engano.
-        </p>
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 print:max-w-none print:px-0 print:py-0">
+        {/* Controles - somem na impressão */}
+        <div className="print:hidden flex items-center justify-between flex-wrap gap-4 mb-6">
+          <div>
+            <h2 className="font-display text-xl font-semibold text-ink mb-1">
+              Relatório mensal
+            </h2>
+            <p className="text-sm text-muted">
+              Escolha o mês de referência e clique em baixar para gerar o PDF.
+            </p>
+          </div>
 
-        {/* Abas */}
-        <div className="flex gap-1 mb-6 border-b border-line">
-          <button
-            onClick={() => setTab("metricas")}
-            className={`text-sm px-4 py-2 border-b-2 transition-colors ${
-              tab === "metricas"
-                ? "border-ochre text-ink font-medium"
-                : "border-transparent text-muted hover:text-graphite"
-            }`}
-          >
-            Métricas
-          </button>
-          <button
-            onClick={() => setTab("analises")}
-            className={`text-sm px-4 py-2 border-b-2 transition-colors ${
-              tab === "analises"
-                ? "border-ochre text-ink font-medium"
-                : "border-transparent text-muted hover:text-graphite"
-            }`}
-          >
-            Análises salvas
-          </button>
+          <div className="flex items-center gap-3">
+            {metrics.length > 0 && (
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="border border-line rounded-sm px-3 py-2 text-sm bg-card"
+              >
+                {metrics.map((m) => (
+                  <option key={m.month} value={m.month}>
+                    {formatMonthFull(m.month)}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button
+              onClick={handlePrint}
+              disabled={!current}
+              className="bg-ochre hover:bg-ochreDark text-white text-sm font-medium px-4 py-2 rounded-sm transition-colors disabled:opacity-50"
+            >
+              Baixar PDF
+            </button>
+          </div>
         </div>
 
-        {/* Aba: Métricas */}
-        {tab === "metricas" && (
-          <>
-            {metricError && (
-              <p className="text-sm text-clay bg-clay/10 border border-clay/30 rounded-sm px-3 py-2 mb-4">
-                {metricError}
-              </p>
-            )}
-
-            {loadingMetrics ? (
-              <p className="text-sm text-muted">Carregando...</p>
-            ) : metrics.length === 0 ? (
-              <div className="bg-card border border-line rounded-lg p-8 text-center">
-                <p className="text-sm text-muted">Nenhuma métrica registrada ainda.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {metrics.map((m) => (
-                  <div
-                    key={m.id}
-                    className="bg-card border border-line rounded-md p-4 flex items-center justify-between gap-4 flex-wrap"
-                  >
-                    <div>
-                      <p className="font-display text-sm font-semibold text-ink">
-                        {formatMonthLabel(m.month)}
-                      </p>
-                      <p className="text-xs text-muted mt-0.5">
-                        {m.followers.toLocaleString("pt-BR")} seguidores ·{" "}
-                        {m.views_total.toLocaleString("pt-BR")} visualizações ·{" "}
-                        {m.posts_count} posts
-                      </p>
-                    </div>
-
-                    {confirmingMetricId === m.id ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-clay">Apagar mesmo?</span>
-                        <button
-                          onClick={() => handleDeleteMetric(m.id!)}
-                          disabled={deletingMetricId === m.id}
-                          className="text-xs bg-clay hover:bg-clay/90 text-white px-3 py-1.5 rounded-sm transition-colors disabled:opacity-60"
-                        >
-                          {deletingMetricId === m.id ? "Apagando..." : "Sim, apagar"}
-                        </button>
-                        <button
-                          onClick={() => setConfirmingMetricId(null)}
-                          className="text-xs text-muted hover:bg-line px-3 py-1.5 rounded-sm transition-colors"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setConfirmingMetricId(m.id!)}
-                        className="text-xs text-clay border border-clay/30 hover:bg-clay/10 px-3 py-1.5 rounded-sm transition-colors"
-                      >
-                        Apagar
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Aba: Análises salvas */}
-        {tab === "analises" && (
-          <>
-            <p className="text-xs text-muted mb-4">
-              Estas são as análises geradas pela IA no Dashboard. Elas ficam
-              salvas para permitir a comparação entre meses.
+        {loading ? (
+          <p className="text-sm text-muted print:hidden">Carregando...</p>
+        ) : !current ? (
+          <div className="bg-card border border-line rounded-lg p-8 text-center print:hidden">
+            <p className="text-sm text-muted">
+              Nenhuma métrica registrada ainda. Cadastre um mês em "+ Nova métrica" primeiro.
             </p>
-
-            {analysisError && (
-              <p className="text-sm text-clay bg-clay/10 border border-clay/30 rounded-sm px-3 py-2 mb-4">
-                {analysisError}
-              </p>
-            )}
-
-            {loadingAnalyses ? (
-              <p className="text-sm text-muted">Carregando...</p>
-            ) : analyses.length === 0 ? (
-              <div className="bg-card border border-line rounded-lg p-8 text-center">
-                <p className="text-sm text-muted">
-                  Nenhuma análise salva ainda. Gere uma no Dashboard.
+          </div>
+        ) : (
+          /* -------- Conteúdo do relatório (isso é o que vai pro PDF) -------- */
+          <div className="bg-white print:shadow-none rounded-lg border border-line print:border-0 p-8 print:p-0">
+            {/* Cabeçalho */}
+            <div className="flex items-center justify-between border-b border-line pb-5 mb-6 print:pb-4 print:mb-6">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-muted mb-1">
+                  Igreja Batista Atitude Méier
+                </p>
+                <h1 className="font-display text-2xl font-semibold text-ink">
+                  Relatório de Instagram
+                </h1>
+                <p className="text-sm text-ochreDark font-medium mt-0.5">
+                  {formatMonthFull(current.month)}
                 </p>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {analyses.map((a) => (
-                  <div
-                    key={a.id}
-                    className="bg-card border border-line rounded-md p-4"
-                  >
-                    <div className="flex items-center justify-between gap-4 flex-wrap">
-                      <div>
-                        <p className="font-display text-sm font-semibold text-ink">
-                          {formatMonthLabel(a.month)}
-                        </p>
-                        <button
-                          onClick={() =>
-                            setExpandedAnalysisId(
-                              expandedAnalysisId === a.id ? null : a.id!
-                            )
-                          }
-                          className="text-xs text-ochreDark hover:underline mt-0.5"
-                        >
-                          {expandedAnalysisId === a.id ? "Ocultar texto" : "Ver texto completo"}
-                        </button>
-                      </div>
+              <div className="w-12 h-12 rounded-full bg-ink flex items-center justify-center text-white font-display font-semibold text-lg">
+                AM
+              </div>
+            </div>
 
-                      {confirmingAnalysisId === a.id ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-clay">Apagar mesmo?</span>
-                          <button
-                            onClick={() => handleDeleteAnalysis(a.id!)}
-                            disabled={deletingAnalysisId === a.id}
-                            className="text-xs bg-clay hover:bg-clay/90 text-white px-3 py-1.5 rounded-sm transition-colors disabled:opacity-60"
-                          >
-                            {deletingAnalysisId === a.id ? "Apagando..." : "Sim, apagar"}
-                          </button>
-                          <button
-                            onClick={() => setConfirmingAnalysisId(null)}
-                            className="text-xs text-muted hover:bg-line px-3 py-1.5 rounded-sm transition-colors"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setConfirmingAnalysisId(a.id!)}
-                          className="text-xs text-clay border border-clay/30 hover:bg-clay/10 px-3 py-1.5 rounded-sm transition-colors"
-                        >
-                          Apagar
-                        </button>
-                      )}
-                    </div>
+            {/* KPIs principais */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-7 print:grid-cols-4">
+              {[
+                { label: "Seguidores", value: current.followers },
+                { label: "Ganhos no mês", value: current.followers_gained },
+                { label: "Visualizações totais", value: current.views_total },
+                {
+                  label: "Engajamento total",
+                  value:
+                    current.reels.likes + current.reels.comments + current.reels.saves + current.reels.shares + current.reels.reposts +
+                    current.stories.likes + current.stories.comments + current.stories.saves + current.stories.shares + current.stories.reposts +
+                    current.posts.likes + current.posts.comments + current.posts.saves + current.posts.shares + current.posts.reposts,
+                },
+              ].map((kpi) => (
+                <div key={kpi.label} className="border border-line rounded-md p-3">
+                  <p className="text-[11px] text-muted mb-1">{kpi.label}</p>
+                  <p className="font-display text-lg font-semibold text-ink">
+                    {kpi.value.toLocaleString("pt-BR")}
+                  </p>
+                </div>
+              ))}
+            </div>
 
-                    {expandedAnalysisId === a.id && (
-                      <div className="mt-3 pt-3 border-t border-line text-sm text-graphite whitespace-pre-wrap leading-relaxed">
-                        {a.analysis}
-                      </div>
-                    )}
-                  </div>
+            {/* Resumo em linguagem simples */}
+            <div className="mb-7">
+              <h2 className="font-display text-sm font-semibold text-ink mb-3">
+                O que aconteceu este mês
+              </h2>
+              <ul className="space-y-1.5">
+                {summaryLines.map((line, i) => (
+                  <li key={i} className="text-sm text-graphite leading-relaxed flex gap-2">
+                    <span className="text-ochreDark">•</span>
+                    <span>{line}</span>
+                  </li>
                 ))}
+              </ul>
+              {!previous && (
+                <p className="text-xs text-muted mt-2">
+                  * Este é o primeiro mês com dados — a partir do próximo mês, o
+                  relatório vai comparar a evolução.
+                </p>
+              )}
+            </div>
+
+            {/* Gráfico de evolução */}
+            {chartData.length > 1 && (
+              <div className="mb-7 print:break-inside-avoid">
+                <h2 className="font-display text-sm font-semibold text-ink mb-3">
+                  Evolução de seguidores e visualizações
+                </h2>
+                <div className="border border-line rounded-md p-3">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E4DFD3" />
+                      <XAxis dataKey="mes" tick={{ fontSize: 11, fill: "#8B8578" }} />
+                      <YAxis tick={{ fontSize: 11, fill: "#8B8578" }} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="Seguidores" stroke="#C98A2C" strokeWidth={2} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="Visualizações" stroke="#5C7A5C" strokeWidth={2} dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             )}
-          </>
+
+            {/* Gráfico de engajamento */}
+            {chartData.length > 1 && (
+              <div className="mb-7 print:break-inside-avoid">
+                <h2 className="font-display text-sm font-semibold text-ink mb-3">
+                  Engajamento por mês
+                </h2>
+                <div className="border border-line rounded-md p-3">
+                  <ResponsiveContainer width="100%" height={180}>
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E4DFD3" />
+                      <XAxis dataKey="mes" tick={{ fontSize: 11, fill: "#8B8578" }} />
+                      <YAxis tick={{ fontSize: 11, fill: "#8B8578" }} />
+                      <Tooltip />
+                      <Bar dataKey="Engajamento" fill="#B4573F" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {/* Glossário simples */}
+            <div className="mb-2 print:break-inside-avoid">
+              <h2 className="font-display text-sm font-semibold text-ink mb-3">
+                O que significa cada número
+              </h2>
+              <div className="grid sm:grid-cols-2 gap-3 text-xs text-graphite leading-relaxed">
+                <p><b className="text-ink">Seguidores:</b> pessoas que seguem o perfil da igreja.</p>
+                <p><b className="text-ink">Visualizações:</b> quantidade de vezes que o conteúdo foi visto (Reels, Stories e Posts).</p>
+                <p><b className="text-ink">Contas alcançadas:</b> % de contas diferentes que viram algum conteúdo.</p>
+                <p><b className="text-ink">Engajamento:</b> soma de curtidas, comentários, salvamentos, compartilhamentos e reposts.</p>
+                <p><b className="text-ink">Visitas ao perfil:</b> quantas vezes alguém entrou no perfil da igreja.</p>
+              </div>
+            </div>
+
+            <div className="border-t border-line pt-4 mt-6 text-center">
+              <p className="text-[11px] text-muted">
+                Relatório gerado automaticamente — Design & Gestão de Redes Sociais, Atitude Méier
+              </p>
+            </div>
+          </div>
         )}
       </main>
     </div>
