@@ -164,7 +164,7 @@ export default function GerenciarPage() {
                       </p>
                       <p className="text-xs text-muted mt-0.5">
                         {m.followers.toLocaleString("pt-BR")} seguidores ·{" "}
-                        {m.reach.toLocaleString("pt-BR")} de alcance ·{" "}
+                        {m.views_total.toLocaleString("pt-BR")} visualizações ·{" "}
                         {m.posts_count} posts
                       </p>
                     </div>
