@@ -30,6 +30,9 @@ export default function DashboardPage() {
   const [analysis, setAnalysis] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState("");
+  const [comparison, setComparison] = useState("");
+  const [comparing, setComparing] = useState(false);
+  const [compareError, setCompareError] = useState("");
 
   useEffect(() => {
     fetch("/api/metrics")
@@ -57,6 +60,30 @@ export default function DashboardPage() {
       setAnalyzeError(err.message);
     } finally {
       setAnalyzing(false);
+    }
+  }
+
+  async function handleCompare() {
+    if (metrics.length === 0) return;
+    setComparing(true);
+    setCompareError("");
+    setComparison("");
+
+    try {
+      const latestMonth = metrics[metrics.length - 1].month;
+      const res = await fetch("/api/compare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ month: latestMonth }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Erro ao gerar comparação.");
+      setComparison(data.comparison);
+    } catch (err: any) {
+      setCompareError(err.message);
+    } finally {
+      setComparing(false);
     }
   }
 
@@ -192,14 +219,15 @@ export default function DashboardPage() {
             </div>
 
             {/* Análise por IA */}
-            <div className="bg-ink rounded-lg p-6">
+            <div className="bg-ink rounded-lg p-6 mb-6">
               <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
                 <div>
                   <h3 className="font-display text-sm font-semibold text-white">
                     Análise inteligente
                   </h3>
                   <p className="text-xs text-white/60 mt-0.5">
-                    Envia o histórico de métricas para uma IA e recebe recomendações
+                    Envia o histórico de métricas para uma IA e recebe recomendações.
+                    A análise gerada é salva automaticamente.
                   </p>
                 </div>
                 <button
@@ -218,6 +246,38 @@ export default function DashboardPage() {
               {analysis && (
                 <div className="mt-4 bg-white/5 rounded-md p-4 text-sm text-white/90 whitespace-pre-wrap leading-relaxed">
                   {analysis}
+                </div>
+              )}
+            </div>
+
+            {/* Comparação com o mês anterior */}
+            <div className="bg-card border border-line rounded-lg p-6">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
+                <div>
+                  <h3 className="font-display text-sm font-semibold text-ink">
+                    Comparar com o mês anterior
+                  </h3>
+                  <p className="text-xs text-muted mt-0.5">
+                    Usa as análises já salvas dos dois últimos meses para
+                    mostrar o que melhorou ou piorou
+                  </p>
+                </div>
+                <button
+                  onClick={handleCompare}
+                  disabled={comparing}
+                  className="bg-ink hover:bg-graphite text-white text-sm font-medium px-4 py-2 rounded-sm transition-colors disabled:opacity-60 whitespace-nowrap"
+                >
+                  {comparing ? "Comparando..." : "Comparar com IA"}
+                </button>
+              </div>
+
+              {compareError && (
+                <p className="text-sm text-clay mt-3">{compareError}</p>
+              )}
+
+              {comparison && (
+                <div className="mt-4 bg-parchment rounded-md p-4 text-sm text-graphite whitespace-pre-wrap leading-relaxed">
+                  {comparison}
                 </div>
               )}
             </div>
