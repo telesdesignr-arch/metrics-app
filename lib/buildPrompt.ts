@@ -33,3 +33,34 @@ Com base nesses dados, escreva uma análise em português, direta e prática, de
 
 Seja específico usando os números fornecidos, não fale de forma vaga.`;
 }
+
+export function buildChatGptUrl(metrics: MetricEntry[]): string {
+  const prompt = buildAnalysisPrompt(metrics);
+  return `https://chatgpt.com/?q=${encodeURIComponent(prompt)}`;
+}
+
+export function buildComparisonPrompt(
+  currentLabel: string,
+  currentAnalysis: string,
+  previousLabel: string,
+  previousAnalysis: string
+): string {
+  return `Você é um consultor de redes sociais especializado em contas de igrejas e eventos comunitários.
+
+Abaixo estão duas análises mensais já feitas sobre o Instagram da Igreja Batista Atitude Méier, uma do mês anterior e outra do mês mais recente.
+
+--- Análise de ${previousLabel} ---
+${previousAnalysis}
+
+--- Análise de ${currentLabel} ---
+${currentAnalysis}
+
+Compare as duas análises e escreva, em português simples (sem jargão de marketing), uma comparação direta entre os dois meses. Estruture assim:
+
+1. O que melhorou de ${previousLabel} para ${currentLabel}
+2. O que piorou ou estagnou
+3. Se as recomendações dadas no mês anterior parecem ter sido seguidas (com base na mudança dos números e do conteúdo das análises)
+4. 2 a 3 recomendações para o próximo mês, considerando essa evolução
+
+Seja direto e específico, citando os pontos das duas análises.`;
+}
