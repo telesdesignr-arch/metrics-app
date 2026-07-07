@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import { MetricEntry, AnalysisEntry } from "@/lib/types";
 
@@ -187,12 +188,20 @@ export default function GerenciarPage() {
                         </button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => setConfirmingMetricId(m.id!)}
-                        className="text-xs text-clay border border-clay/30 hover:bg-clay/10 px-3 py-1.5 rounded-sm transition-colors"
-                      >
-                        Apagar
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/nova-metrica?month=${m.month.slice(0, 7)}`}
+                          className="text-xs text-ochreDark border border-ochre/30 hover:bg-ochre/10 px-3 py-1.5 rounded-sm transition-colors"
+                        >
+                          Editar
+                        </Link>
+                        <button
+                          onClick={() => setConfirmingMetricId(m.id!)}
+                          className="text-xs text-clay border border-clay/30 hover:bg-clay/10 px-3 py-1.5 rounded-sm transition-colors"
+                        >
+                          Apagar
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}
