@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import NavBar from "@/components/NavBar";
+import { MetricEntry } from "@/lib/types";
 
 function currentMonthValue() {
   const now = new Date();
@@ -81,13 +82,17 @@ function Section({
   );
 }
 
-export default function NovaMetricaPage() {
+function NovaMetricaForm() {
   const router = useRouter();
-  const [month, setMonth] = useState(currentMonthValue());
+  const searchParams = useSearchParams();
+  const editMonth = searchParams.get("month"); // formato "YYYY-MM" se estiver editando
+
+  const [month, setMonth] = useState(editMonth || currentMonthValue());
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [loadingExisting, setLoadingExisting] = useState(!!editMonth);
 
   const [v, setV] = useState<Record<string, string>>({});
   const [contentData, setContentData] = useState<Record<string, Record<string, string>>>({
@@ -95,6 +100,67 @@ export default function NovaMetricaPage() {
     stories: {},
     posts: {},
   });
+
+  // Se veio com ?month=, carrega os dados existentes daquele mês pra edição.
+  useEffect(() => {
+    if (!editMonth) return;
+
+    fetch("/api/metrics")
+      .then((res) => res.json())
+      .then((data) => {
+        const list: MetricEntry[] = data.metrics || [];
+        const existing = list.find((m) => m.month.slice(0, 7) === editMonth);
+        if (!existing) return;
+
+        setV({
+          followers: String(existing.followers ?? ""),
+          followers_gained: String(existing.followers_gained ?? ""),
+          followers_lost: String(existing.followers_lost ?? ""),
+          gender_men_pct: String(existing.gender_men_pct ?? ""),
+          gender_women_pct: String(existing.gender_women_pct ?? ""),
+          views_total: String(existing.views_total ?? ""),
+          views_reels_pct: String(existing.views_reels_pct ?? ""),
+          views_stories_pct: String(existing.views_stories_pct ?? ""),
+          views_posts_pct: String(existing.views_posts_pct ?? ""),
+          accounts_reached_pct: String(existing.accounts_reached_pct ?? ""),
+          interactions_total: String(existing.interactions_total ?? ""),
+          interactions_followers_pct: String(existing.interactions_followers_pct ?? ""),
+          interactions_non_followers_pct: String(existing.interactions_non_followers_pct ?? ""),
+          interactions_reels_pct: String(existing.interactions_reels_pct ?? ""),
+          interactions_stories_pct: String(existing.interactions_stories_pct ?? ""),
+          interactions_posts_pct: String(existing.interactions_posts_pct ?? ""),
+          profile_visits: String(existing.profile_visits ?? ""),
+          posts_count: String(existing.posts_count ?? ""),
+        });
+
+        setContentData({
+          reels: {
+            likes: String(existing.reels?.likes ?? ""),
+            comments: String(existing.reels?.comments ?? ""),
+            saves: String(existing.reels?.saves ?? ""),
+            shares: String(existing.reels?.shares ?? ""),
+            reposts: String(existing.reels?.reposts ?? ""),
+          },
+          stories: {
+            likes: String(existing.stories?.likes ?? ""),
+            comments: String(existing.stories?.comments ?? ""),
+            saves: String(existing.stories?.saves ?? ""),
+            shares: String(existing.stories?.shares ?? ""),
+            reposts: String(existing.stories?.reposts ?? ""),
+          },
+          posts: {
+            likes: String(existing.posts?.likes ?? ""),
+            comments: String(existing.posts?.comments ?? ""),
+            saves: String(existing.posts?.saves ?? ""),
+            shares: String(existing.posts?.shares ?? ""),
+            reposts: String(existing.posts?.reposts ?? ""),
+          },
+        });
+
+        setNotes(existing.notes || "");
+      })
+      .finally(() => setLoadingExisting(false));
+  }, [editMonth]);
 
   function setField(key: string, value: string) {
     setV((prev) => ({ ...prev, [key]: value }));
@@ -169,7 +235,7 @@ export default function NovaMetricaPage() {
       }
 
       setSuccess(true);
-      setTimeout(() => router.push("/"), 900);
+      setTimeout(() => router.push(editMonth ? "/gerenciar" : "/"), 900);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -183,13 +249,17 @@ export default function NovaMetricaPage() {
 
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
         <h2 className="font-display text-xl font-semibold text-ink mb-1">
-          Registrar métricas do mês
+          {editMonth ? "Editar métricas do mês" : "Registrar métricas do mês"}
         </h2>
         <p className="text-sm text-muted mb-6">
-          Preencha com os números do Instagram Insights (últimos 30 dias) do
-          Painel Profissional. Se já existir um registro para esse mês, ele
-          será atualizado.
+          {editMonth
+            ? "Ajuste os números abaixo e salve para atualizar este mês."
+            : "Preencha com os números do Instagram Insights (últimos 30 dias) do Painel Profissional. Se já existir um registro para esse mês, ele será atualizado."}
         </p>
+
+        {loadingExisting && (
+          <p className="text-sm text-muted mb-4">Carregando dados existentes...</p>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="bg-card border border-line rounded-lg p-5">
@@ -201,8 +271,15 @@ export default function NovaMetricaPage() {
               value={month}
               onChange={(e) => setMonth(e.target.value)}
               required
-              className="w-full sm:w-52 border border-line rounded-sm px-3 py-2 text-sm bg-parchment"
+              disabled={!!editMonth}
+              className="w-full sm:w-52 border border-line rounded-sm px-3 py-2 text-sm bg-parchment disabled:opacity-60"
             />
+            {editMonth && (
+              <p className="text-xs text-muted mt-1.5">
+                Não é possível trocar o mês ao editar. Para mudar de mês, apague
+                e crie um novo registro.
+              </p>
+            )}
           </div>
 
           {/* Visualizações */}
@@ -296,17 +373,29 @@ export default function NovaMetricaPage() {
           </div>
 
           {error && <p className="text-sm text-clay">{error}</p>}
-          {success && <p className="text-sm text-moss">Métricas salvas com sucesso!</p>}
+          {success && (
+            <p className="text-sm text-moss">
+              {editMonth ? "Métricas atualizadas com sucesso!" : "Métricas salvas com sucesso!"}
+            </p>
+          )}
 
           <button
             type="submit"
             disabled={saving}
             className="bg-ochre hover:bg-ochreDark text-white text-sm font-medium px-5 py-2.5 rounded-sm transition-colors disabled:opacity-60"
           >
-            {saving ? "Salvando..." : "Salvar métricas"}
+            {saving ? "Salvando..." : editMonth ? "Salvar alterações" : "Salvar métricas"}
           </button>
         </form>
       </main>
     </div>
+  );
+}
+
+export default function NovaMetricaPage() {
+  return (
+    <Suspense fallback={null}>
+      <NovaMetricaForm />
+    </Suspense>
   );
 }
