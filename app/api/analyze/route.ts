@@ -3,6 +3,7 @@ import { COOKIE_NAME, isValidSessionValue } from "@/lib/auth";
 import { MetricEntry } from "@/lib/types";
 import { buildAnalysisPrompt } from "@/lib/buildPrompt";
 import { getSupabaseServerClient } from "@/lib/supabase";
+import { callGeminiWithFallback } from "@/lib/gemini";
 
 async function checkAuth(request: NextRequest) {
   const session = request.cookies.get(COOKIE_NAME)?.value;
@@ -36,29 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     const prompt = buildAnalysisPrompt(metrics);
-    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.4 },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Erro na API do Gemini (modelo: ${model}): ${errText}`);
-    }
-
-    const data = await response.json();
-    const analysis =
-      data.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "Não foi possível gerar a análise.";
+    const analysis = await callGeminiWithFallback(prompt, apiKey, process.env.GEMINI_MODEL);
 
     // Salva a análise associada ao mês mais recente do histórico enviado.
     const latestMonth = metrics[metrics.length - 1].month;
