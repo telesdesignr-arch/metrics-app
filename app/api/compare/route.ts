@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { COOKIE_NAME, isValidSessionValue } from "@/lib/auth";
 import { getSupabaseServerClient } from "@/lib/supabase";
 import { buildComparisonPrompt } from "@/lib/buildPrompt";
+import { callGeminiWithFallback } from "@/lib/gemini";
 
 async function checkAuth(request: NextRequest) {
   const session = request.cookies.get(COOKIE_NAME)?.value;
@@ -79,28 +80,7 @@ export async function POST(request: NextRequest) {
       previousEntry.analysis
     );
 
-    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.4 },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Erro na API do Gemini (modelo: ${model}): ${errText}`);
-    }
-
-    const data = await response.json();
-    const comparison =
-      data.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "Não foi possível gerar a comparação.";
+    const comparison = await callGeminiWithFallback(prompt, apiKey, process.env.GEMINI_MODEL);
 
     return NextResponse.json({ comparison });
   } catch (err: any) {
