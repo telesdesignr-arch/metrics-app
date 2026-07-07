@@ -61,8 +61,11 @@ export default function RelatorioPage() {
   const chartData = historyUpToSelected.map((m) => ({
     mes: formatMonthShort(m.month),
     Seguidores: m.followers,
-    Alcance: m.reach,
-    Engajamento: m.likes + m.comments + m.shares + m.saves,
+    Visualizações: m.views_total,
+    Engajamento:
+      m.reels.likes + m.reels.comments + m.reels.saves + m.reels.shares + m.reels.reposts +
+      m.stories.likes + m.stories.comments + m.stories.saves + m.stories.shares + m.stories.reposts +
+      m.posts.likes + m.posts.comments + m.posts.saves + m.posts.shares + m.posts.reposts,
   }));
 
   const summaryLines = current ? buildMonthlySummary(current, previous) : [];
@@ -146,11 +149,14 @@ export default function RelatorioPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-7 print:grid-cols-4">
               {[
                 { label: "Seguidores", value: current.followers },
-                { label: "Novos seguidores", value: current.new_followers },
-                { label: "Alcance", value: current.reach },
+                { label: "Ganhos no mês", value: current.followers_gained },
+                { label: "Visualizações totais", value: current.views_total },
                 {
                   label: "Engajamento total",
-                  value: current.likes + current.comments + current.shares + current.saves,
+                  value:
+                    current.reels.likes + current.reels.comments + current.reels.saves + current.reels.shares + current.reels.reposts +
+                    current.stories.likes + current.stories.comments + current.stories.saves + current.stories.shares + current.stories.reposts +
+                    current.posts.likes + current.posts.comments + current.posts.saves + current.posts.shares + current.posts.reposts,
                 },
               ].map((kpi) => (
                 <div key={kpi.label} className="border border-line rounded-md p-3">
@@ -187,7 +193,7 @@ export default function RelatorioPage() {
             {chartData.length > 1 && (
               <div className="mb-7 print:break-inside-avoid">
                 <h2 className="font-display text-sm font-semibold text-ink mb-3">
-                  Evolução de seguidores e alcance
+                  Evolução de seguidores e visualizações
                 </h2>
                 <div className="border border-line rounded-md p-3">
                   <ResponsiveContainer width="100%" height={200}>
@@ -197,7 +203,7 @@ export default function RelatorioPage() {
                       <YAxis tick={{ fontSize: 11, fill: "#8B8578" }} />
                       <Tooltip />
                       <Line type="monotone" dataKey="Seguidores" stroke="#C98A2C" strokeWidth={2} dot={{ r: 3 }} />
-                      <Line type="monotone" dataKey="Alcance" stroke="#5C7A5C" strokeWidth={2} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="Visualizações" stroke="#5C7A5C" strokeWidth={2} dot={{ r: 3 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -231,8 +237,9 @@ export default function RelatorioPage() {
               </h2>
               <div className="grid sm:grid-cols-2 gap-3 text-xs text-graphite leading-relaxed">
                 <p><b className="text-ink">Seguidores:</b> pessoas que seguem o perfil da igreja.</p>
-                <p><b className="text-ink">Alcance:</b> quantidade de contas diferentes que viram algum post.</p>
-                <p><b className="text-ink">Engajamento:</b> soma de curtidas, comentários, compartilhamentos e salvamentos.</p>
+                <p><b className="text-ink">Visualizações:</b> quantidade de vezes que o conteúdo foi visto (Reels, Stories e Posts).</p>
+                <p><b className="text-ink">Contas alcançadas:</b> % de contas diferentes que viram algum conteúdo.</p>
+                <p><b className="text-ink">Engajamento:</b> soma de curtidas, comentários, salvamentos, compartilhamentos e reposts.</p>
                 <p><b className="text-ink">Visitas ao perfil:</b> quantas vezes alguém entrou no perfil da igreja.</p>
               </div>
             </div>
