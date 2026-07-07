@@ -35,9 +35,10 @@ export async function POST(request: NextRequest) {
     }
 
     const prompt = buildAnalysisPrompt(metrics);
+    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errText = await response.text();
-      throw new Error(`Erro na API do Gemini: ${errText}`);
+      throw new Error(`Erro na API do Gemini (modelo: ${model}): ${errText}`);
     }
 
     const data = await response.json();
