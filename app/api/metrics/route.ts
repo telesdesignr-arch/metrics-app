@@ -64,3 +64,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  if (!(await checkAuth(request))) {
+    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  }
+
+  try {
+    const { id } = await request.json();
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "É necessário informar o id do registro a apagar." },
+        { status: 400 }
+      );
+    }
+
+    const supabase = getSupabaseServerClient();
+    const { error } = await supabase.from("metrics").delete().eq("id", id);
+
+    if (error) throw error;
+
+    return NextResponse.json({ ok: true });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
