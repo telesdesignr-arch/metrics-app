@@ -24,6 +24,12 @@ function formatMonth(monthStr: string) {
   return `${names[Number(month) - 1]}/${year.slice(2)}`;
 }
 
+function totalEngagement(m: MetricEntry) {
+  const sum = (c?: { likes: number; comments: number; saves: number; shares: number; reposts: number }) =>
+    c ? c.likes + c.comments + c.saves + c.shares + c.reposts : 0;
+  return sum(m.reels) + sum(m.stories) + sum(m.posts);
+}
+
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState<MetricEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,30 +96,24 @@ export default function DashboardPage() {
   const chartData = metrics.map((m) => ({
     mes: formatMonth(m.month.slice(0, 7)),
     Seguidores: m.followers,
-    Alcance: m.reach,
-    Impressões: m.impressions,
-    Engajamento: m.likes + m.comments + m.shares + m.saves,
+    Visualizações: m.views_total,
+    Engajamento: totalEngagement(m),
   }));
 
   const latest = metrics[metrics.length - 1];
   const previous = metrics[metrics.length - 2];
 
-  function delta(key: keyof MetricEntry) {
-    if (!latest || !previous) return null;
-    const diff = Number(latest[key]) - Number(previous[key]);
-    return diff;
+  function delta(current: number, prev: number | undefined) {
+    if (prev === undefined) return null;
+    return current - prev;
   }
 
   const kpis = latest
     ? [
-        { label: "Seguidores", value: latest.followers, delta: delta("followers") },
-        { label: "Alcance", value: latest.reach, delta: delta("reach") },
-        { label: "Impressões", value: latest.impressions, delta: delta("impressions") },
-        {
-          label: "Engajamento total",
-          value: latest.likes + latest.comments + latest.shares + latest.saves,
-          delta: null,
-        },
+        { label: "Seguidores", value: latest.followers, delta: delta(latest.followers, previous?.followers) },
+        { label: "Contas alcançadas", value: latest.accounts_reached_pct, suffix: "%", delta: delta(latest.accounts_reached_pct, previous?.accounts_reached_pct) },
+        { label: "Visualizações totais", value: latest.views_total, delta: delta(latest.views_total, previous?.views_total) },
+        { label: "Interações totais", value: latest.interactions_total, delta: delta(latest.interactions_total, previous?.interactions_total) },
       ]
     : [];
 
@@ -146,6 +146,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-muted mb-1">{kpi.label}</p>
                   <p className="font-display text-xl font-semibold text-ink">
                     {kpi.value.toLocaleString("pt-BR")}
+                    {kpi.suffix || ""}
                   </p>
                   {kpi.delta !== null && (
                     <p
@@ -154,17 +155,18 @@ export default function DashboardPage() {
                       }`}
                     >
                       {kpi.delta >= 0 ? "+" : ""}
-                      {kpi.delta.toLocaleString("pt-BR")} vs. mês anterior
+                      {kpi.delta.toLocaleString("pt-BR")}
+                      {kpi.suffix || ""} vs. mês anterior
                     </p>
                   )}
                 </div>
               ))}
             </div>
 
-            {/* Gráfico de seguidores e alcance */}
+            {/* Gráfico de seguidores e visualizações */}
             <div className="bg-card border border-line rounded-lg p-5 mb-6">
               <h3 className="font-display text-sm font-semibold text-ink mb-4">
-                Evolução de seguidores e alcance
+                Evolução de seguidores e visualizações
               </h3>
               <ResponsiveContainer width="100%" height={260}>
                 <LineChart data={chartData}>
@@ -187,7 +189,7 @@ export default function DashboardPage() {
                   />
                   <Line
                     type="monotone"
-                    dataKey="Alcance"
+                    dataKey="Visualizações"
                     stroke="#5C7A5C"
                     strokeWidth={2}
                     dot={{ r: 3 }}
