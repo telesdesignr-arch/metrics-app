@@ -45,6 +45,16 @@ export default function NavBar() {
           >
             + Nova métrica
           </Link>
+          <Link
+            href="/gerenciar"
+            className={`text-sm px-3 py-1.5 rounded-sm transition-colors ${
+              pathname === "/gerenciar"
+                ? "bg-ink text-white"
+                : "text-graphite hover:bg-line"
+            }`}
+          >
+            Gerenciar
+          </Link>
           <button
             onClick={handleLogout}
             className="text-sm px-3 py-1.5 rounded-sm text-muted hover:bg-line transition-colors"
